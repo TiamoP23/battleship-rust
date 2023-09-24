@@ -7,15 +7,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'untitled'",
+            "name": "Debug executable 'battleship'",
             "cargo": {
-                "args": [
-                    "build",
-                    "--bin=untitled",
-                    "--package=untitled"
-                ],
+                "args": ["build", "--bin=battleship", "--package=battleship"],
                 "filter": {
-                    "name": "untitled",
+                    "name": "battleship",
                     "kind": "bin"
                 }
             },
@@ -28,16 +24,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'untitled'",
+            "name": "Debug unit tests in executable 'battleship'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=untitled",
-                    "--package=untitled"
+                    "--bin=battleship",
+                    "--package=battleship"
                 ],
                 "filter": {
-                    "name": "untitled",
+                    "name": "battleship",
                     "kind": "bin"
                 }
             },

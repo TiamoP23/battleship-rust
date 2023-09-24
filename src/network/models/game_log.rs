@@ -7,4 +7,5 @@ pub struct GameLog {
     pub player: String,
     #[serde(rename = "move")]
     pub game_move: Option<Position>,
+    pub error: Option<String>,
 }

@@ -1,6 +1,6 @@
 mod board;
-mod cell_state;
 mod direction;
+mod field_state;
 mod game_details;
 mod game_event;
 mod game_log;
@@ -12,8 +12,8 @@ mod position;
 mod ship;
 
 pub use board::*;
-pub use cell_state::*;
 pub use direction::*;
+pub use field_state::*;
 pub use game_details::*;
 pub use game_event::*;
 pub use game_log::*;

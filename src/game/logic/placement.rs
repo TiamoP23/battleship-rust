@@ -5,11 +5,11 @@ use crate::network::models::{Direction, Placement, Position, Ship};
 
 impl Placement {
     pub fn new() -> Placement {
-        return Placement { ships: vec![] };
+        Placement { ships: vec![] }
     }
 
-    pub fn is_occupied(&self, cell: &Position) -> bool {
-        return self.ships.iter().any(|ship| ship.collides_with(cell));
+    pub fn is_occupied(&self, field: &Position) -> bool {
+        return self.ships.iter().any(|ship| ship.collides_with(field));
     }
 
     pub fn get_missing_ship_sizes(&self) -> Vec<i8> {
@@ -24,7 +24,7 @@ impl Placement {
             }
         }
 
-        return missing_ship_sizes;
+        missing_ship_sizes
     }
 
     pub fn add_ship(&mut self, ship: Ship) -> Result<(), &str> {
@@ -54,26 +54,26 @@ impl Placement {
 
         self.ships.push(ship);
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn all_ships_placed(&self) -> bool {
-        return self.ships.len() == 5;
+        self.ships.len() == 5
     }
 
     pub fn print(&self) {
         let mut board = vec![vec![" "; 10]; 10];
 
         for ship in &self.ships {
-            for cell in ship.get_occupied_cells() {
-                board[cell.x as usize][cell.y as usize] = "O";
+            for field in ship.get_occupied_fields() {
+                board[field.x as usize][field.y as usize] = "O";
             }
         }
 
         let mut table = Table::new();
 
         for row in board {
-            table.add_row(Row::new(row.iter().map(|cell| Cell::new(cell)).collect()));
+            table.add_row(Row::new(row.iter().map(|field| Cell::new(field)).collect()));
         }
 
         table.printstd();
@@ -110,6 +110,6 @@ impl Distribution<Placement> for Standard {
             }
         }
 
-        return placement;
+        placement
     }
 }

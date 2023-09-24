@@ -1,34 +1,32 @@
 use prettytable::{Cell, Row, Table};
 
-use crate::network::models::{Board, BoardOrBool, CellState, Direction, Placement, Position, Ship};
+use crate::network::models::{
+    Board, BoardOrBool, Direction, FieldState, Placement, Position, Ship,
+};
 
 impl Board {
-    pub fn get_cell(&self, position: Position) -> CellState {
+    pub fn get_field(&self, position: Position) -> FieldState {
         if position.x < 0 || position.y < 0 || position.x > 9 || position.y > 9 {
-            return CellState::Empty;
+            return FieldState::Empty;
         }
 
-        let Board(cells) = self;
-
-        return cells[position.x as usize][position.y as usize];
+        self.fields[position.x as usize][position.y as usize]
     }
 
-    pub fn set_cell(&mut self, position: Position, state: CellState) {
+    pub fn set_field(&mut self, position: Position, state: FieldState) {
         if position.x < 0 || position.y < 0 || position.x > 9 || position.y > 9 {
             return;
         }
 
-        let Board(cells) = self;
-
-        cells[position.x as usize][position.y as usize] = state;
+        self.fields[position.x as usize][position.y as usize] = state;
     }
 
-    pub fn check_cell(&self, position: Position, state: Vec<CellState>) -> bool {
-        return state.contains(&self.get_cell(position));
+    pub fn check_field(&self, position: Position, state: Vec<FieldState>) -> bool {
+        state.contains(&self.get_field(position))
     }
 
     pub fn is_occupied(&self, position: Position) -> bool {
-        let neighbor_cells = vec![
+        let neighbor_fields = vec![
             Position {
                 x: position.x - 1,
                 y: position.y - 1,
@@ -63,30 +61,28 @@ impl Board {
             },
         ];
 
-        for neighbor_cell in neighbor_cells {
-            if self.check_cell(
-                neighbor_cell,
-                vec![CellState::Ship, CellState::Destroyed, CellState::Damaged],
+        for neighbor_field in neighbor_fields {
+            if self.check_field(
+                neighbor_field,
+                vec![FieldState::Ship, FieldState::Destroyed, FieldState::Damaged],
             ) {
                 return true;
             }
         }
 
-        return false;
+        false
     }
 
-    pub fn find_cells<CB: Fn(&Position) -> bool>(
+    pub fn find_fields<CB: Fn(&Position) -> bool>(
         &self,
-        state: Vec<CellState>,
+        state: Vec<FieldState>,
         filter: CB,
     ) -> Vec<Position> {
         let mut positions = Vec::new();
 
-        let Board(cells) = self;
-
-        for (x, col) in cells.iter().enumerate() {
-            for (y, cell) in col.iter().enumerate() {
-                if state.contains(cell) {
+        for (x, col) in self.fields.iter().enumerate() {
+            for (y, field) in col.iter().enumerate() {
+                if state.contains(field) {
                     let position = Position {
                         x: x as i8,
                         y: y as i8,
@@ -101,19 +97,17 @@ impl Board {
             }
         }
 
-        return positions;
+        positions
     }
 
-    pub fn find_cell<CB: Fn(&Position) -> bool>(
+    pub fn find_field<CB: Fn(&Position) -> bool>(
         &self,
-        state: Vec<CellState>,
+        state: Vec<FieldState>,
         filter: CB,
     ) -> Option<Position> {
-        let Board(cells) = self;
-
-        for (x, col) in cells.iter().enumerate() {
-            for (y, cell) in col.iter().enumerate() {
-                if state.contains(cell) {
+        for (x, col) in self.fields.iter().enumerate() {
+            for (y, field) in col.iter().enumerate() {
+                if state.contains(field) {
                     let position = Position {
                         x: x as i8,
                         y: y as i8,
@@ -128,28 +122,28 @@ impl Board {
             }
         }
 
-        return None;
+        None
     }
 
     pub fn detect_direction(&self, start: &Position) -> Vec<Direction> {
         // Check if ship is horizontal
-        if self.check_cell(
+        if self.check_field(
             Position {
                 x: start.x + 1,
                 y: start.y,
             },
-            vec![CellState::Ship, CellState::Destroyed, CellState::Damaged],
+            vec![FieldState::Ship, FieldState::Destroyed, FieldState::Damaged],
         ) {
             return vec![Direction::Horizontal];
         }
 
         // Check if ship is vertical
-        if self.check_cell(
+        if self.check_field(
             Position {
                 x: start.x,
                 y: start.y + 1,
             },
-            vec![CellState::Ship, CellState::Destroyed, CellState::Damaged],
+            vec![FieldState::Ship, FieldState::Destroyed, FieldState::Damaged],
         ) {
             return vec![Direction::Vertical];
         }
@@ -157,39 +151,39 @@ impl Board {
         // Check possible directions
         let mut possible_directions: Vec<Direction> = vec![];
 
-        if self.check_cell(
+        if self.check_field(
             Position {
                 x: start.x + 1,
                 y: start.y,
             },
-            vec![CellState::Unknown],
-        ) || self.check_cell(
+            vec![FieldState::Unknown],
+        ) || self.check_field(
             Position {
                 x: start.x - 1,
                 y: start.y,
             },
-            vec![CellState::Unknown],
+            vec![FieldState::Unknown],
         ) {
             possible_directions.push(Direction::Horizontal);
         }
 
-        if self.check_cell(
+        if self.check_field(
             Position {
                 x: start.x,
                 y: start.y + 1,
             },
-            vec![CellState::Unknown],
-        ) || self.check_cell(
+            vec![FieldState::Unknown],
+        ) || self.check_field(
             Position {
                 x: start.x,
                 y: start.y - 1,
             },
-            vec![CellState::Unknown],
+            vec![FieldState::Unknown],
         ) {
             possible_directions.push(Direction::Vertical);
         }
 
-        return possible_directions;
+        possible_directions
     }
 
     pub fn detect_size(&self, start: &Position, direction: &Direction, max_size: &i8) -> i8 {
@@ -213,15 +207,15 @@ impl Board {
 
             let position = Position { x, y };
 
-            if !self.check_cell(
+            if !self.check_field(
                 position,
-                vec![CellState::Ship, CellState::Destroyed, CellState::Damaged],
+                vec![FieldState::Ship, FieldState::Destroyed, FieldState::Damaged],
             ) {
                 break;
             }
         }
 
-        return size - 1;
+        size - 1
     }
 
     pub fn detect_unknown_fields_end(
@@ -251,12 +245,12 @@ impl Board {
                     },
             };
 
-            if !self.check_cell(position, vec![CellState::Unknown]) {
+            if !self.check_field(position, vec![FieldState::Unknown]) {
                 break;
             }
         }
 
-        return unknown_end - 1;
+        unknown_end - 1
     }
 
     pub fn detect_unknown_fields_start(
@@ -286,20 +280,20 @@ impl Board {
                     }),
             };
 
-            if !self.check_cell(position, vec![CellState::Unknown]) {
+            if !self.check_field(position, vec![FieldState::Unknown]) {
                 break;
             }
         }
 
-        return unknown_start - 1;
+        unknown_start - 1
     }
 
     pub fn detect_complete_ships(&self) -> Placement {
         let mut placement = Placement::new();
 
         loop {
-            let start = self.find_cell(vec![CellState::Ship, CellState::Destroyed], |cell| {
-                !placement.is_occupied(cell)
+            let start = self.find_field(vec![FieldState::Ship, FieldState::Destroyed], |field| {
+                !placement.is_occupied(field)
             });
 
             let start = match start {
@@ -315,7 +309,7 @@ impl Board {
             );
 
             let ship = Ship {
-                start: start,
+                start,
                 direction: direction[0],
                 size,
             };
@@ -323,7 +317,7 @@ impl Board {
             placement.add_ship(ship).expect("Invalid ship detected");
         }
 
-        return placement;
+        placement
     }
 
     pub fn detect_damaged_ship(&self, placement: &Placement) -> Option<Vec<Placement>> {
@@ -336,16 +330,16 @@ impl Board {
 
         let mut placements: Vec<Placement> = Vec::new();
 
-        let start = self.find_cell(vec![CellState::Damaged], |_| true)?;
+        let start = self.find_field(vec![FieldState::Damaged], |_| true)?;
 
         let possible_directions = self.detect_direction(&start);
 
         for direction in possible_directions {
             let detected_size = self.detect_size(&start, &direction, max_size);
             let unknown_end =
-                self.detect_unknown_fields_end(&max_size, &detected_size, &start, &direction);
+                self.detect_unknown_fields_end(max_size, &detected_size, &start, &direction);
             let unknown_start =
-                self.detect_unknown_fields_start(&max_size, &detected_size, &start, &direction);
+                self.detect_unknown_fields_start(max_size, &detected_size, &start, &direction);
             let size_min = detected_size + 1;
 
             for size in &missing_ship_sizes {
@@ -392,30 +386,28 @@ impl Board {
             return None;
         }
 
-        return Some(placements);
+        Some(placements)
     }
 
     pub fn detect_placements(&self) -> Vec<Placement> {
         let placement = self.detect_complete_ships();
 
-        return self
-            .detect_damaged_ship(&placement)
-            .unwrap_or_else(|| vec![placement]);
+        self.detect_damaged_ship(&placement)
+            .unwrap_or_else(|| vec![placement])
     }
 
     pub fn print(&self) {
-        let Board(cells) = self;
-
-        let board: Vec<Vec<&str>> = cells
+        let board: Vec<Vec<&str>> = self
+            .fields
             .iter()
             .map(|col| {
                 col.iter()
-                    .map(|cell| match cell {
-                        CellState::Empty => ".",
-                        CellState::Unknown => " ",
-                        CellState::Ship => "O",
-                        CellState::Damaged => "x",
-                        CellState::Destroyed => "X",
+                    .map(|field| match field {
+                        FieldState::Empty => ".",
+                        FieldState::Unknown => " ",
+                        FieldState::Ship => "O",
+                        FieldState::Damaged => "x",
+                        FieldState::Destroyed => "X",
                     })
                     .collect()
             })
@@ -424,16 +416,16 @@ impl Board {
         let mut table = Table::new();
 
         for row in board {
-            table.add_row(Row::new(row.iter().map(|cell| Cell::new(cell)).collect()));
+            table.add_row(Row::new(row.iter().map(|field| Cell::new(field)).collect()));
         }
 
         table.printstd();
     }
 }
 
-impl Into<Option<Board>> for BoardOrBool {
-    fn into(self) -> Option<Board> {
-        match self {
+impl From<BoardOrBool> for Option<Board> {
+    fn from(val: BoardOrBool) -> Self {
+        match val {
             BoardOrBool::Board(board) => Some(board),
             BoardOrBool::Bool(_) => None,
         }

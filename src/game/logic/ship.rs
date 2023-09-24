@@ -7,14 +7,14 @@ impl Ship {
         let (self_start, self_end) = self.get_bounds();
         let (other_start, other_end) = other.get_bounds();
 
-        return self_start.x < other_end.x
+        self_start.x < other_end.x
             && self_end.x > other_start.x
             && self_start.y < other_end.y
-            && self_end.y > other_start.y;
+            && self_end.y > other_start.y
     }
 
-    pub fn get_occupied_cells(&self) -> Vec<Position> {
-        let mut cells: Vec<Position> = vec![];
+    pub fn get_occupied_fields(&self) -> Vec<Position> {
+        let mut fields: Vec<Position> = vec![];
 
         for i in 0..self.size {
             let x = match self.direction {
@@ -26,10 +26,10 @@ impl Ship {
                 Direction::Horizontal => self.start.y,
             };
 
-            cells.push(Position { x, y });
+            fields.push(Position { x, y });
         }
 
-        return cells;
+        fields
     }
 
     pub fn get_end(&self) -> Position {
@@ -51,38 +51,32 @@ impl WithBounds for Ship {
         let (start, end) = self.start.get_bounds();
 
         match self.direction {
-            Direction::Horizontal => {
-                return (
-                    Position {
-                        x: start.x,
-                        y: start.y,
-                    },
-                    Position {
-                        x: end.x + self.size - 1,
-                        y: end.y,
-                    },
-                );
-            }
-            Direction::Vertical => {
-                return (
-                    Position {
-                        x: start.x,
-                        y: start.y,
-                    },
-                    Position {
-                        x: end.x,
-                        y: end.y + self.size - 1,
-                    },
-                );
-            }
+            Direction::Horizontal => (
+                Position {
+                    x: start.x,
+                    y: start.y,
+                },
+                Position {
+                    x: end.x + self.size - 1,
+                    y: end.y,
+                },
+            ),
+            Direction::Vertical => (
+                Position {
+                    x: start.x,
+                    y: start.y,
+                },
+                Position {
+                    x: end.x,
+                    y: end.y + self.size - 1,
+                },
+            ),
         }
     }
 }
 
 impl PartialEq for Ship {
     fn eq(&self, other: &Self) -> bool {
-        return self.start == other.start
-            && self.size == other.size
-            && self.direction == other.direction;
+        self.start == other.start && self.size == other.size && self.direction == other.direction
     }
 }

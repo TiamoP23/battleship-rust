@@ -1,7 +1,7 @@
-use crate::network::models::Position;
-
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+
+use crate::network::models::Position;
 
 use super::with_bounds::WithBounds;
 
@@ -25,12 +25,12 @@ impl WithBounds for Position {
             y: self.y + 1,
         };
 
-        return (start, end);
+        (start, end)
     }
 }
 
 impl PartialEq for Position {
     fn eq(&self, other: &Self) -> bool {
-        return self.x == other.x && self.y == other.y;
+        self.x == other.x && self.y == other.y
     }
 }
