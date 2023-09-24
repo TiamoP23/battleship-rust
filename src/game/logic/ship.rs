@@ -74,9 +74,3 @@ impl WithBounds for Ship {
         }
     }
 }
-
-impl PartialEq for Ship {
-    fn eq(&self, other: &Self) -> bool {
-        self.start == other.start && self.size == other.size && self.direction == other.direction
-    }
-}

@@ -28,9 +28,3 @@ impl WithBounds for Position {
         (start, end)
     }
 }
-
-impl PartialEq for Position {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y
-    }
-}
