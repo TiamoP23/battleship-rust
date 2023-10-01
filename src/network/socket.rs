@@ -7,7 +7,7 @@ use super::controller::handle_connect;
 use super::controller::handle_data;
 use super::controller::handle_error;
 
-pub fn init_connection() {
+pub fn init_socket_connection() {
     let gameserver = std::env::var("GAMESERVER").expect("GAMESERVER not set");
 
     let _socket = ClientBuilder::new(gameserver)

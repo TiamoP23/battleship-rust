@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 
 use application::logging::start_logger;
 use dotenv::dotenv;
-use network::socket::init_connection;
+use network::socket::init_socket_connection;
 
 mod application;
 mod game;
@@ -15,7 +15,7 @@ fn main() {
     dotenv().ok();
     let _logger_handle = start_logger();
 
-    init_connection();
+    init_socket_connection();
 
     loop {
         thread::sleep(Duration::from_secs(60))
