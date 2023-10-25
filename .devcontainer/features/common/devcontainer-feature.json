@@ -23,5 +23,10 @@
             }
         }
     },
-    "installsAfter": ["ghcr.io/devcontainers-contrib/features/prettier"]
+    "installsAfter": ["ghcr.io/devcontainers-contrib/features/prettier"],
+    "dependsOn": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "configureZshAsDefaultShell": true
+        }
+    }
 }

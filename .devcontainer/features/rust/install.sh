@@ -1,1 +1,3 @@
-# This Script has to be here because every feature needs to have an install.sh
+#!/bin/bash
+sudo apt-get update
+sudo apt-get install -y pkg-config
