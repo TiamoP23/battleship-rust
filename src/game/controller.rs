@@ -3,23 +3,23 @@ use crate::network::models::GameResponse;
 
 use super::handler::{init_handler, result_handler, round_handler, set_handler};
 
-pub fn handle_game_event(event: GameEvent) -> Option<GameResponse> {
+pub async fn handle_game_event(event: GameEvent) -> Option<GameResponse> {
     match event {
         GameEvent::Init(event) => {
-            init_handler(event);
+            init_handler(event).await;
             None
         }
         GameEvent::Round(event) => {
-            let position = round_handler(event);
+            let position = round_handler(event).await;
 
             Some(GameResponse::Attack(position))
         }
         GameEvent::Result(event) => {
-            result_handler(event);
+            result_handler(event).await;
             None
         }
         GameEvent::Set(event) => {
-            let placement = set_handler(event);
+            let placement = set_handler(event).await;
 
             Some(GameResponse::PlaceShips(placement))
         }

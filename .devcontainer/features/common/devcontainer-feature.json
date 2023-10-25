@@ -1,0 +1,27 @@
+{
+    "id": "common",
+    "version": "1.0.0",
+    "name": "TiamoP23 Common",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "EditorConfig.EditorConfig",
+                "esbenp.prettier-vscode"
+            ],
+            "settings": {
+                "explorer.fileNesting.enabled": true,
+                "explorer.fileNesting.patterns": {
+                    ".env": ".env.local, .env.*, .env.*.local"
+                },
+                "editor.formatOnPaste": true,
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.fixAll": true,
+                    "source.organizeImports": true
+                },
+                "editor.defaultFormatter": "esbenp.prettier-vscode"
+            }
+        }
+    },
+    "installsAfter": ["ghcr.io/devcontainers-contrib/features/prettier"]
+}

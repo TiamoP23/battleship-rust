@@ -1,161 +1,178 @@
 use itertools::Itertools;
-use std::collections::HashMap;
+use log::debug;
 
-use crate::network::models::{Board, FieldState, GameRoundEvent, Position};
+use crate::{
+    application::database::DB_POOL,
+    game::logic::heatmap::Heatmap,
+    network::models::{Board, FieldState, GameRoundEvent, Position},
+};
 
-pub fn round_handler(event: GameRoundEvent) -> Position {
-    let opponent_board = event.get_opponent_board();
+pub async fn round_handler(event: GameRoundEvent) -> Position {
+    let pool = DB_POOL.get().unwrap();
+    let opponent = event.details.get_opponent();
 
-    let strategies = [next_attack, second_attack, first_attack];
-
-    strategies
+    for round in event
+        .details
+        .log
         .iter()
-        .find_map(|strategy| strategy(&opponent_board))
-        .expect("No strategy returned a position")
+        .rev()
+        .take_while(|round| round.player == opponent.id)
+    {
+        let move_x = match round.game_move {
+            Some(position) => Some(position.x as i16),
+            None => None,
+        };
+
+        let move_y = match round.game_move {
+            Some(position) => Some(position.y as i16),
+            None => None,
+        };
+
+        sqlx::query!(
+            r#"INSERT INTO round (game_id, opponent_move, move_x, move_y) VALUES ($1, $2, $3, $4)"#,
+            event.details.id,
+            true,
+            move_x,
+            move_y,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to insert round in database");
+    }
+
+    let strategies = vec![next_attack, second_attack, first_attack];
+
+    let opponent_board = event.get_opponent_board();
+    let heatmap = Heatmap::from_board(opponent_board);
+
+    debug!("Heatmap for game {}: {:#?}", event.details.id, heatmap);
+
+    let position = strategies
+        .iter()
+        .enumerate()
+        .find_map(|(index, strategy)| {
+            let position = strategy(&opponent_board)
+                .into_iter()
+                .sorted_by(|a, b| {
+                    let a_heat = heatmap.fields[a.x as usize][a.y as usize];
+                    let b_heat = heatmap.fields[b.x as usize][b.y as usize];
+
+                    b_heat.cmp(&a_heat)
+                })
+                .next()?;
+
+            debug!(
+                "Using strategy {} to attack at {:?} in game {}",
+                index + 1,
+                position,
+                event.details.id
+            );
+
+            Some(position)
+        })
+        .expect("No strategy returned a position");
+
+    let pool = DB_POOL.get().unwrap();
+
+    sqlx::query!(
+        r#"INSERT INTO round (game_id, opponent_move, move_x, move_y) VALUES ($1, $2, $3, $4)"#,
+        event.details.id,
+        false,
+        position.x as i16,
+        position.y as i16,
+    )
+    .execute(pool)
+    .await
+    .expect("Failed to insert round in database");
+
+    position
 }
 
-fn first_attack(board: &Board) -> Option<Position> {
-    board.find_field(vec![FieldState::Unknown], |position| {
+fn first_attack(board: &Board) -> Vec<Position> {
+    board.find_fields(vec![FieldState::Unknown], |position| {
         position.x % 2 == position.y % 2 && !board.is_occupied(*position)
     })
 }
 
-fn second_attack(board: &Board) -> Option<Position> {
-    let damaged_field = board.find_field(vec![FieldState::Damaged], |_| true)?;
+fn second_attack(board: &Board) -> Vec<Position> {
+    let damaged_field = match board.find_field(vec![FieldState::Damaged], |_| true) {
+        Some(field) => field,
+        None => return Vec::new(),
+    };
 
-    let mut neighbor_fields = HashMap::from([
-        (
-            Position {
-                x: damaged_field.x - 1,
-                y: damaged_field.y,
-            },
-            0,
-        ),
-        (
-            Position {
-                x: damaged_field.x + 1,
-                y: damaged_field.y,
-            },
-            0,
-        ),
-        (
-            Position {
-                x: damaged_field.x,
-                y: damaged_field.y - 1,
-            },
-            0,
-        ),
-        (
-            Position {
-                x: damaged_field.x,
-                y: damaged_field.y + 1,
-            },
-            0,
-        ),
-    ]);
+    let neighbor_fields = vec![
+        Position {
+            x: damaged_field.x - 1,
+            y: damaged_field.y,
+        },
+        Position {
+            x: damaged_field.x + 1,
+            y: damaged_field.y,
+        },
+        Position {
+            x: damaged_field.x,
+            y: damaged_field.y - 1,
+        },
+        Position {
+            x: damaged_field.x,
+            y: damaged_field.y + 1,
+        },
+    ];
 
-    let placements = board.detect_placements();
-
-    for placement in placements {
-        for ship in &placement.ships {
-            for field in ship.get_occupied_fields() {
-                if let Some(count) = neighbor_fields.get_mut(&field) {
-                    *count += 1;
-                }
-            }
-        }
-    }
-
-    let position = neighbor_fields
-        .iter()
-        .sorted_by(|(_, count_a), (_, count_b)| count_b.cmp(count_a))
-        .map(|(position, _)| position)
-        .find(|&position| board.check_field(*position, vec![FieldState::Unknown]))?;
-
-    Some(*position)
+    neighbor_fields
+        .into_iter()
+        .filter(|&position| board.check_field(position, vec![FieldState::Unknown]))
+        .collect_vec()
 }
 
-fn next_attack(board: &Board) -> Option<Position> {
+fn next_attack(board: &Board) -> Vec<Position> {
     let damaged_fields = board.find_fields(vec![FieldState::Damaged], |_| true);
 
     if damaged_fields.len() == 1 {
-        return None;
+        return Vec::new();
     }
 
-    let first_damaged_field = damaged_fields.first()?;
-    let last_damaged_field = damaged_fields.last()?;
+    let first_damaged_field = match damaged_fields.first() {
+        Some(field) => field,
+        None => return Vec::new(),
+    };
 
-    let placements = board.detect_placements();
+    let last_damaged_field = match damaged_fields.last() {
+        Some(field) => field,
+        None => return Vec::new(),
+    };
 
     if first_damaged_field.x != last_damaged_field.x {
-        let mut neighbor_fields = HashMap::from([
-            (
-                Position {
-                    x: first_damaged_field.x - 1,
-                    y: first_damaged_field.y,
-                },
-                0,
-            ),
-            (
-                Position {
-                    x: last_damaged_field.x + 1,
-                    y: last_damaged_field.y,
-                },
-                0,
-            ),
-        ]);
+        let neighbor_fields = vec![
+            Position {
+                x: first_damaged_field.x - 1,
+                y: first_damaged_field.y,
+            },
+            Position {
+                x: last_damaged_field.x + 1,
+                y: last_damaged_field.y,
+            },
+        ];
 
-        for placement in placements {
-            for ship in &placement.ships {
-                for field in ship.get_occupied_fields() {
-                    if let Some(count) = neighbor_fields.get_mut(&field) {
-                        *count += 1;
-                    }
-                }
-            }
-        }
-
-        let position = neighbor_fields
-            .iter()
-            .sorted_by(|(_, count_a), (_, count_b)| count_b.cmp(count_a))
-            .map(|(position, _)| position)
-            .find(|&position| board.check_field(*position, vec![FieldState::Unknown]))?;
-
-        Some(*position)
+        neighbor_fields
+            .into_iter()
+            .filter(|&position| board.check_field(position, vec![FieldState::Unknown]))
+            .collect_vec()
     } else {
-        let mut neighbor_fields = HashMap::from([
-            (
-                Position {
-                    x: first_damaged_field.x,
-                    y: first_damaged_field.y - 1,
-                },
-                0,
-            ),
-            (
-                Position {
-                    x: last_damaged_field.x,
-                    y: last_damaged_field.y + 1,
-                },
-                0,
-            ),
-        ]);
+        let neighbor_fields = vec![
+            Position {
+                x: first_damaged_field.x,
+                y: first_damaged_field.y - 1,
+            },
+            Position {
+                x: last_damaged_field.x,
+                y: last_damaged_field.y + 1,
+            },
+        ];
 
-        for placement in placements {
-            for ship in &placement.ships {
-                for field in ship.get_occupied_fields() {
-                    if let Some(count) = neighbor_fields.get_mut(&field) {
-                        *count += 1;
-                    }
-                }
-            }
-        }
-
-        let position = neighbor_fields
-            .iter()
-            .sorted_by(|(_, count_a), (_, count_b)| count_b.cmp(count_a))
-            .map(|(position, _)| position)
-            .find(|&position| board.check_field(*position, vec![FieldState::Unknown]))?;
-
-        Some(*position)
+        neighbor_fields
+            .into_iter()
+            .filter(|&position| board.check_field(position, vec![FieldState::Unknown]))
+            .collect_vec()
     }
 }

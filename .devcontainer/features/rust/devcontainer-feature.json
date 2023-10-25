@@ -1,0 +1,63 @@
+{
+    "id": "rust",
+    "version": "1.0.0",
+    "name": "TiamoP23 Rust",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "none",
+                "1.70",
+                "1.69",
+                "1.68",
+                "1.67",
+                "1.66",
+                "1.65",
+                "1.64",
+                "1.63",
+                "1.62",
+                "1.61"
+            ],
+            "default": "latest",
+            "description": "Select or enter a version of Rust to install."
+        },
+        "profile": {
+            "type": "string",
+            "proposals": ["minimal", "default", "complete"],
+            "default": "minimal",
+            "description": "Select a rustup install profile."
+        }
+    },
+    "mounts": [
+        {
+            "source": "cargo-cache",
+            "target": "/usr/local/cargo",
+            "type": "volume"
+        }
+    ],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "explorer.fileNesting.patterns": {
+                    "Cargo.toml": "Cargo.lock"
+                },
+                "[rust]": {
+                    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+                    "rust-analyzer.showUnlinkedFileNotification": false,
+                    "rust-analyzer.completion.callable.snippets": "add_parentheses",
+                    "rust-analyzer.imports.granularity.enforce": true
+                },
+                "[toml]": {
+                    "editor.defaultFormatter": "tamasfe.even-better-toml"
+                }
+            }
+        }
+    },
+    "dependsOn": {
+        "ghcr.io/devcontainers/features/rust": {
+            "version": "${VERSION}",
+            "profile": "${PROFILE}"
+        }
+    }
+}

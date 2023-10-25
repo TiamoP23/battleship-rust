@@ -125,7 +125,7 @@ impl Board {
         None
     }
 
-    pub fn detect_direction(&self, start: &Position) -> Vec<Direction> {
+    fn detect_direction(&self, start: &Position) -> Vec<Direction> {
         // Check if ship is horizontal
         if self.check_field(
             Position {
@@ -186,7 +186,7 @@ impl Board {
         possible_directions
     }
 
-    pub fn detect_size(&self, start: &Position, direction: &Direction, max_size: &i8) -> i8 {
+    fn detect_size(&self, start: &Position, direction: &Direction, max_size: &i8) -> i8 {
         let mut size: i8 = 1;
 
         while size <= *max_size {
@@ -218,7 +218,7 @@ impl Board {
         size - 1
     }
 
-    pub fn detect_unknown_fields_end(
+    fn detect_unknown_fields_end(
         &self,
         max_size: &i8,
         size: &i8,
@@ -253,7 +253,7 @@ impl Board {
         unknown_end - 1
     }
 
-    pub fn detect_unknown_fields_start(
+    fn detect_unknown_fields_start(
         &self,
         max_size: &i8,
         size: &i8,

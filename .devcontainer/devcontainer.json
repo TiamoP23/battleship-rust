@@ -1,0 +1,11 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/rust
+{
+    "name": "Rust",
+    "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+    "features": {
+        "./features/common": "latest",
+        "./features/rust": "1.73",
+        "./features/postgresql": "15"
+    }
+}
