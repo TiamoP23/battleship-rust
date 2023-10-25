@@ -1,4 +1,4 @@
-use sqlx::{postgres::PgPoolOptions, query, PgPool};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::sync::OnceCell;
 
 pub static DB_POOL: OnceCell<PgPool> = OnceCell::const_new();
