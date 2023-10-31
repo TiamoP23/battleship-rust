@@ -1,11 +1,16 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/rust
 {
-    "name": "Rust",
+    "name": "Battleship (bot)",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
     "features": {
         "ghcr.io/tiamop23/devcontainer-features/common": "latest",
         "ghcr.io/tiamop23/devcontainer-features/rust": "1.73",
-        "ghcr.io/tiamop23/devcontainer-features/postgresql": "15"
+        "ghcr.io/tiamop23/devcontainer-features/postgresql": "15",
+        "ghcr.io/TiamoP23/devcontainer-features/sqlx-cli": {}
+    },
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "8gb"
     }
 }
