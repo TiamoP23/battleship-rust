@@ -16,7 +16,7 @@ pub fn try_start_logger() -> Result<LoggerHandle> {
     Debug
     Trace
     */
-    let level = std::env::var("LOGLEVEL").expect("LOGLEVEL not set");
+    let level = std::env::var("LOGLEVEL").unwrap_or(String::from("Info"));
     let logger_handle = Logger::try_with_str(level)?
         .log_to_file(FileSpec::default().directory("logs"))
         .write_mode(WriteMode::Direct)
