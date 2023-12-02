@@ -1,89 +1,105 @@
 name: Rust
 
 on:
-    pull_request:
-        branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 env:
-    CARGO_TERM_COLOR: always
-    DATABASE_HOST: 127.0.0.1
-    DATABASE_NAME: postgres
-    DATABASE_USER: postgres
-    DATABASE_PASSWORD: postgres
+  CARGO_TERM_COLOR: always
+  DATABASE_HOST: 127.0.0.1
+  DATABASE_NAME: postgres
+  DATABASE_USER: postgres
+  DATABASE_PASSWORD: postgres
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  run:
+    runs-on: ubuntu-latest
 
-        concurrency: "bot-test"
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: ${{ env.DATABASE_USER }}
+          POSTGRES_PASSWORD: ${{ env.DATABASE_PASSWORD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
-        services:
-            postgres:
-                image: postgres
-                env:
-                    POSTGRES_USER: ${{ env.DATABASE_USER }}
-                    POSTGRES_PASSWORD: ${{ env.DATABASE_PASSWORD }}
-                options: >-
-                    --health-cmd pg_isready
-                    --health-interval 10s
-                    --health-timeout 5s
-                    --health-retries 5
-                ports:
-                    - 5432:5432
+    permissions:
+      pull-requests: write
 
-        permissions:
-            pull-requests: write
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: |
-                      ~/.cargo/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
-            - name: Install sqlx-cli
-              run: cargo install sqlx-cli --no-default-features --features postgres
-            - name: Setup database
-              run: sqlx database setup
-              env:
-                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
-            - name: Build
-              run: cargo build
-              env:
-                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
-            - name: Run for 1 minute
-              run: |
-                  timeout --preserve-status --signal=SIGINT 1m cargo run || exit_code=$?
-                  if [ $exit_code -eq 130 ]; then
-                      exit 0
-                  else
-                      exit $exit_code
-                  fi
-              env:
-                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
-                  GAMESERVER: ${{ vars.GAMESERVER }}
-                  SECRET: ${{ secrets.SECRET }}
-            - name: Generate report
-              run: >-
-                  psql --html --command "
-                  SELECT
-                  game.result AS result,
-                  TO_CHAR(COUNT(*) / SUM(COUNT(*)) OVER () * 100, 'FM999.00%') AS percentage
-                  FROM game
-                  WHERE game.result IS NOT NULL
-                  GROUP BY game.result
-                  " >> report.md
-              env:
-                  PGHOSTADDR: ${{ env.DATABASE_HOST }}
-                  PGDATABASE: ${{ env.DATABASE_NAME }}
-                  PGUSER: ${{ env.DATABASE_USER }}
-                  PGPASSWORD: ${{ env.DATABASE_PASSWORD }}
-            - name: Comment on PR
-              uses: mshick/add-pr-comment@v2
-              with:
-                  message-path: report.md
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/
+            target/
+          key: ${{ runner.os }}-cargo
+          restore-keys: ${{ runner.os }}-cargo
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+      - name: Setup database
+        run: sqlx database setup
+        env:
+          DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+      - name: Build
+        run: cargo build
+        env:
+          DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+      - name: Get secret
+        id: get_secret
+        run: echo "SECRET=$(curl --retry 100 --retry-delay 5 --retry-max-time 600 --retry-all-errors --silent --fail "https://worker-square-pond-3961.tiamop23.workers.dev/")" >> $GITHUB_ENV
+      - name: Run for 1 minute
+        run: |
+          timeout --preserve-status --signal=SIGINT 1m cargo run || exit_code=$?
+          if [ $exit_code -eq 130 ]; then
+              exit 0
+          else
+              exit $exit_code
+          fi
+        env:
+          DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+          GAMESERVER: ${{ vars.GAMESERVER }}
+      - name: Generate report
+        run: |
+          echo "# Statistics" > report.md
+          psql \
+            --html \
+            --tuples-only \
+            --command " \
+              SELECT \
+                game.result AS result, \
+                TO_CHAR(COUNT(*) / SUM(COUNT(*)) OVER () * 100, 'FM999.00%') AS percentage \
+              FROM game \
+              WHERE game.result IS NOT NULL \
+              GROUP BY game.result \
+            " >> report.md
+          TOTAL=$(psql \
+            --tuples-only \
+            --no-align \
+            --command "SELECT COUNT(*) FROM game WHERE game.result IS NOT NULL" \
+          )
+          echo "" >> report.md
+          echo "$TOTAL games played" >> report.md
+          echo "" >> report.md
+          echo "# Logs" >> report.md
+          echo "<details><summary>Click to expand</summary><pre>" >> report.md
+          cat logs/battleship_r*.log >> report.md
+          echo "</pre></details>" >> report.md
+        env:
+          PGHOSTADDR: ${{ env.DATABASE_HOST }}
+          PGDATABASE: ${{ env.DATABASE_NAME }}
+          PGUSER: ${{ env.DATABASE_USER }}
+          PGPASSWORD: ${{ env.DATABASE_PASSWORD }}
+      - name: Comment on PR
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-path: report.md
