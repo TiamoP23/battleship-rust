@@ -1,0 +1,87 @@
+name: Rust
+
+on:
+    pull_request:
+        branches: ["main"]
+
+env:
+    CARGO_TERM_COLOR: always
+    DATABASE_HOST: 127.0.0.1
+    DATABASE_NAME: postgres
+    DATABASE_USER: postgres
+    DATABASE_PASSWORD: postgres
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres
+                env:
+                    POSTGRES_USER: ${{ env.DATABASE_USER }}
+                    POSTGRES_PASSWORD: ${{ env.DATABASE_PASSWORD }}
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 5432:5432
+
+        permissions:
+            pull-requests: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            - name: Set up cargo cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: |
+                      ~/.cargo/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: ${{ runner.os }}-cargo-
+            - name: Install sqlx-cli
+              run: cargo install sqlx-cli --no-default-features --features postgres
+            - name: Setup database
+              run: sqlx database setup
+              env:
+                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+            - name: Build
+              run: cargo build
+              env:
+                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+            - name: Run for 1 minute
+              run: |
+                  timeout --preserve-status --signal=SIGINT 1m cargo run || exit_code=$?
+                  if [ $exit_code -eq 130 ]; then
+                      exit 0
+                  else
+                      exit $exit_code
+                  fi
+              env:
+                  DATABASE_URL: postgres://${{ env.DATABASE_USER }}:${{ env.DATABASE_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}
+                  GAMESERVER: ${{ vars.GAMESERVER }}
+                  SECRET: ${{ secrets.SECRET }}
+            - name: Generate report
+              run: >-
+                  psql --html --command "
+                  SELECT
+                  game.result AS result,
+                  TO_CHAR(COUNT(*) / SUM(COUNT(*)) OVER () * 100, 'FM999.00%') AS percentage
+                  FROM game
+                  WHERE game.result IS NOT NULL
+                  GROUP BY game.result
+                  " >> report.md
+              env:
+                  PGHOSTADDR: ${{ env.DATABASE_HOST }}
+                  PGDATABASE: ${{ env.DATABASE_NAME }}
+                  PGUSER: ${{ env.DATABASE_USER }}
+                  PGPASSWORD: ${{ env.DATABASE_PASSWORD }}
+            - name: Comment on PR
+              uses: mshick/add-pr-comment@v2
+              with:
+                  message-path: report.md
