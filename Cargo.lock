@@ -1519,8 +1519,8 @@ dependencies = [
 
 [[package]]
 name = "rust_engineio"
-version = "0.4.3"
-source = "git+https://github.com/TiamoP23/rust-socketio-event-ack#587508cf51fdd27b7f4ea95a457539753aac4589"
+version = "0.4.4"
+source = "git+https://github.com/TiamoP23/rust-socketio-event-ack#972f39b0357965cb9dd9d15e59e17df54004d97a"
 dependencies = [
  "adler32",
  "async-stream",
@@ -1542,8 +1542,8 @@ dependencies = [
 
 [[package]]
 name = "rust_socketio"
-version = "0.4.3"
-source = "git+https://github.com/TiamoP23/rust-socketio-event-ack#587508cf51fdd27b7f4ea95a457539753aac4589"
+version = "0.4.4"
+source = "git+https://github.com/TiamoP23/rust-socketio-event-ack#972f39b0357965cb9dd9d15e59e17df54004d97a"
 dependencies = [
  "adler32",
  "async-stream",
